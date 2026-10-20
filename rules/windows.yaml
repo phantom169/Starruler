@@ -1,0 +1,158 @@
+# Windows 操作系统 三级等保基线（等保2.0 安全计算环境）
+# 采集方式：WinRM 执行 PowerShell；密码策略通过 secedit 导出（键名英文，中英文系统通用）
+target: windows
+name: Windows 三级等保基线
+collector: winrm
+items:
+  - id: WIN-AUTH-01
+    title: 启用密码复杂性要求
+    control: 身份鉴别
+    ref: 8.1.4.1-a
+    severity: high
+    command: "secedit /export /cfg $env:TEMP\\secpol.cfg | Out-Null; (Select-String -Path $env:TEMP\\secpol.cfg -Pattern 'PasswordComplexity').Line -replace '.*=\\s*',''"
+    op: "eq"
+    expected: "1"
+    when_empty: fail
+    remediation: "gpedit.msc → 计算机配置→Windows设置→安全设置→账户策略→密码策略→密码必须符合复杂性要求=已启用"
+  - id: WIN-AUTH-02
+    title: 密码最小长度不小于8位
+    control: 身份鉴别
+    ref: 8.1.4.1-a
+    severity: medium
+    command: "secedit /export /cfg $env:TEMP\\secpol.cfg | Out-Null; (Select-String -Path $env:TEMP\\secpol.cfg -Pattern 'MinimumPasswordLength').Line -replace '.*=\\s*',''"
+    op: ">="
+    expected: "8"
+    when_empty: fail
+    remediation: "密码策略 → 最小密码长度设为 8 或以上"
+  - id: WIN-AUTH-03
+    title: 密码最长使用期不大于90天
+    control: 身份鉴别
+    ref: 8.1.4.1-b
+    severity: medium
+    command: "secedit /export /cfg $env:TEMP\\secpol.cfg | Out-Null; (Select-String -Path $env:TEMP\\secpol.cfg -Pattern 'MaximumPasswordAge').Line -replace '.*=\\s*',''"
+    op: "<="
+    expected: "90"
+    when_empty: fail
+    remediation: "密码策略 → 密码最长使用期限设为 90 天以内"
+  - id: WIN-AUTH-04
+    title: 密码最短使用期不少于1天
+    control: 身份鉴别
+    ref: 8.1.4.1-b
+    severity: low
+    command: "secedit /export /cfg $env:TEMP\\secpol.cfg | Out-Null; (Select-String -Path $env:TEMP\\secpol.cfg -Pattern 'MinimumPasswordAge').Line -replace '.*=\\s*',''"
+    op: ">="
+    expected: "1"
+    when_empty: fail
+    remediation: "密码策略 → 密码最短使用期限设为 1 天以上"
+  - id: WIN-AUTH-05
+    title: 账户锁定阈值不大于5次
+    control: 身份鉴别
+    ref: 8.1.4.1-c
+    severity: high
+    command: "secedit /export /cfg $env:TEMP\\secpol.cfg | Out-Null; (Select-String -Path $env:TEMP\\secpol.cfg -Pattern 'LockoutBadCount').Line -replace '.*=\\s*',''"
+    op: "<="
+    expected: "5"
+    when_empty: fail
+    remediation: "账户锁定策略 → 账户锁定阈值设为 5 次或以下（0表示永不锁定，不符合）"
+  - id: WIN-AUTH-06
+    title: 账户锁定时间不少于30分钟
+    control: 身份鉴别
+    ref: 8.1.4.1-c
+    severity: medium
+    command: "secedit /export /cfg $env:TEMP\\secpol.cfg | Out-Null; (Select-String -Path $env:TEMP\\secpol.cfg -Pattern 'LockoutDuration').Line -replace '.*=\\s*',''"
+    op: ">="
+    expected: "30"
+    when_empty: manual
+    remediation: "账户锁定策略 → 账户锁定时间设为 30 分钟以上"
+  - id: WIN-AUTH-07
+    title: 远程桌面启用网络级认证(NLA)
+    control: 身份鉴别
+    ref: 8.1.4.1-d
+    severity: medium
+    command: "(Get-ItemProperty 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Terminal Server\\WinStations\\RDP-Tcp' -ErrorAction SilentlyContinue).UserAuthentication"
+    op: "eq"
+    expected: "1"
+    when_empty: manual
+    remediation: "系统属性→远程→允许远程连接并启用网络级身份验证"
+  # ===== 访问控制 =====
+  - id: WIN-ACC-01
+    title: 来宾(Guest)账户已禁用
+    control: 访问控制
+    ref: 8.1.4.2
+    severity: high
+    command: "(Get-LocalUser -Name Guest -ErrorAction SilentlyContinue).Enabled"
+    op: "eq"
+    expected: "False"
+    when_empty: manual
+    remediation: "计算机管理→本地用户和组→禁用 Guest"
+  - id: WIN-ACC-02
+    title: 禁止自动登录（不保存明文凭据）
+    control: 访问控制
+    ref: 8.1.4.2
+    severity: medium
+    command: "(Get-ItemProperty 'HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon' -ErrorAction SilentlyContinue).AutoAdminLogon"
+    op: "eq"
+    expected: "0"
+    when_empty: pass
+    remediation: "删除 Winlogon 键下的 AutoAdminLogon/DefaultPassword 自动登录配置"
+  # ===== 安全审计 =====
+  - id: WIN-AUD-01
+    title: 审核登录事件策略已启用
+    control: 安全审计
+    ref: 8.1.4.3
+    severity: medium
+    command: "secedit /export /cfg $env:TEMP\\secpol.cfg | Out-Null; (Select-String -Path $env:TEMP\\secpol.cfg -Pattern 'AuditLogonEvents').Line -replace '.*=\\s*',''"
+    op: "in"
+    expected: "1,3,7"
+    when_empty: manual
+    remediation: "本地策略→审核策略→审核登录事件，勾选成功/失败"
+  - id: WIN-AUD-02
+    title: Windows 防火墙服务运行中
+    control: 访问控制
+    ref: 8.1.4.2
+    severity: medium
+    command: "(Get-Service mpssvc -ErrorAction SilentlyContinue).Status"
+    op: "eq"
+    expected: "Running"
+    when_empty: manual
+    remediation: "services.msc 启用 Windows Defender Firewall(MpSSvc)"
+  # ===== 入侵防范 =====
+  - id: WIN-INTR-01
+    title: 禁用 SMBv1 协议（防范永恒之蓝类攻击）
+    control: 入侵防范
+    ref: 8.1.4.4
+    severity: high
+    command: "(Get-SmbServerConfiguration -ErrorAction SilentlyContinue).EnableSMB1Protocol"
+    op: "eq"
+    expected: "False"
+    when_empty: manual
+    remediation: "Set-SmbServerConfiguration -EnableSMB1Protocol $false（Server2016+）；旧版本卸载 SMB1 功能"
+  - id: WIN-INTR-02
+    title: 关机时清理虚拟内存页面文件
+    control: 剩余信息保护
+    ref: 8.1.4.10
+    severity: low
+    command: "(Get-ItemProperty 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Memory Management' -ErrorAction SilentlyContinue).ClearPageFileAtShutdown"
+    op: "eq"
+    expected: "1"
+    when_empty: manual
+    remediation: "本地策略→安全选项→关机：清除虚拟内存页面文件=已启用"
+  - id: WIN-INTR-03
+    title: 已挂起/禁用可写共享的匿名访问
+    control: 访问控制
+    ref: 8.1.4.2
+    severity: medium
+    command: "(Get-ItemProperty 'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\LanmanServer\\Parameters' -ErrorAction SilentlyContinue).restrictanonymous"
+    op: ">="
+    expected: "1"
+    when_empty: manual
+    remediation: "本地策略→安全选项→网络访问：不允许匿名枚举SAM账户=已启用"
+manual_items:
+  - id: WIN-MAN-01
+    title: 补丁管理：高危漏洞补丁是否及时安装
+    ref: 8.1.4.4
+    method: "查看 systeminfo 补丁列表/WSUS 记录，对照最新高危补丁清单"
+  - id: WIN-MAN-02
+    title: 是否部署恶意代码防范产品并统一管理
+    ref: 8.1.4.5
+    method: "检查防病毒/EDR Agent 与病毒库更新情况"

@@ -1,0 +1,69 @@
+# Oracle 三级等保基线
+target: oracle
+name: Oracle 三级等保基线
+collector: oracle
+items:
+  - id: ORA-AUTH-01
+    title: 登录失败锁定阈值不大于10次
+    control: 身份鉴别
+    ref: 8.1.4.1-c
+    severity: high
+    command: "SELECT limit FROM dba_profiles WHERE resource_name='FAILED_LOGIN_ATTEMPTS' AND profile IN (SELECT profile FROM dba_users WHERE username='DEFAULT') AND rownum=1"
+    op: "<="
+    expected: "10"
+    when_empty: manual
+    remediation: "ALTER PROFILE DEFAULT LIMIT FAILED_LOGIN_ATTEMPTS 10;"
+  - id: ORA-AUTH-02
+    title: 口令有效期不大于90天
+    control: 身份鉴别
+    ref: 8.1.4.1-b
+    severity: medium
+    command: "SELECT TO_CHAR(limit) FROM dba_profiles WHERE resource_name='PASSWORD_LIFE_TIME' AND profile='DEFAULT'"
+    op: "<="
+    expected: "90"
+    when_empty: manual
+    remediation: "ALTER PROFILE DEFAULT LIMIT PASSWORD_LIFE_TIME 90;"
+  - id: ORA-AUTH-03
+    title: 口令锁定时间不少于30分钟
+    control: 身份鉴别
+    ref: 8.1.4.1-c
+    severity: medium
+    command: "SELECT TO_CHAR(limit) FROM dba_profiles WHERE resource_name='PASSWORD_LOCK_TIME' AND profile='DEFAULT'"
+    op: ">="
+    expected: "0.02"
+    when_empty: manual
+    note: 单位为天，0.02天≈30分钟
+    remediation: "ALTER PROFILE DEFAULT LIMIT PASSWORD_LOCK_TIME 1/48;"
+  - id: ORA-AUTH-04
+    title: 口令复用限制（90天内不得重复）
+    control: 身份鉴别
+    ref: 8.1.4.1-b
+    severity: low
+    command: "SELECT TO_CHAR(limit) FROM dba_profiles WHERE resource_name='PASSWORD_REUSE_TIME' AND profile='DEFAULT'"
+    op: ">="
+    expected: "90"
+    when_empty: manual
+    remediation: "ALTER PROFILE DEFAULT LIMIT PASSWORD_REUSE_TIME 90 PASSWORD_REUSE_MAX UNLIMITED;"
+  - id: ORA-ACC-01
+    title: 启用口令复杂度校验函数
+    control: 身份鉴别
+    ref: 8.1.4.1-a
+    severity: medium
+    command: "SELECT COUNT(*) FROM dba_profiles p WHERE p.profile='DEFAULT' AND p.resource_name='PASSWORD_VERIFY_FUNCTION' AND p.limit <> 'NULL'"
+    op: ">="
+    expected: "1"
+    remediation: "执行 utlpwdmg.sql 并 ALTER PROFILE DEFAULT LIMIT PASSWORD_VERIFY_FUNCTION VERIFY_FUNCTION_11G;"
+  - id: ORA-INTR-01
+    title: 关闭不需要的账户（锁定过期账户外的活动默认账户）
+    control: 访问控制
+    ref: 8.1.4.2
+    severity: medium
+    command: "SELECT COUNT(*) FROM dba_users WHERE account_status='OPEN' AND username IN ('SCOTT','HR','OE','SH','PM','IX','BI')"
+    op: "eq"
+    expected: "0"
+    remediation: "ALTER USER xxx ACCOUNT LOCK; 或删除示例账户"
+manual_items:
+  - id: ORA-MAN-01
+    title: 数据库审计（audit_trail）与备份策略
+    ref: 8.1.4.3/8.1.4.9
+    method: "核查 audit_trail 参数、RMAN 备份计划与恢复演练记录"

@@ -1,0 +1,68 @@
+# Redis 三级等保基线
+target: redis
+name: Redis 三级等保基线
+collector: redis
+items:
+  - id: REDIS-AUTH-01
+    title: 已设置访问口令（requirepass）
+    control: 身份鉴别
+    ref: 8.1.4.1
+    severity: high
+    command: "CONFIG GET requirepass"
+    op: "ne"
+    expected: ""
+    when_empty: fail
+    mask: true
+    remediation: "CONFIG SET requirepass '强口令' 并写入 redis.conf（长度≥16随机串）"
+  - id: REDIS-ACC-01
+    title: protected-mode 已开启
+    control: 访问控制
+    ref: 8.1.4.2
+    severity: medium
+    command: "CONFIG GET protected-mode"
+    op: "eq"
+    expected: "yes"
+    remediation: "redis.conf 设置 protected-mode yes"
+  - id: REDIS-ACC-02
+    title: bind 限定监听地址（未监听全部接口）
+    control: 访问控制
+    ref: 8.1.4.2
+    severity: medium
+    command: "CONFIG GET bind"
+    op: "ne"
+    expected: "0.0.0.0"
+    when_empty: manual
+    remediation: "redis.conf 设置 bind 127.0.0.1 或内网管理地址"
+  - id: REDIS-ACC-03
+    title: 危险命令已改名或禁用（FLUSHALL/CONFIG）
+    control: 入侵防范
+    ref: 8.1.4.4
+    severity: low
+    command: "CONFIG GET rename-command"
+    op: "exists"
+    expected: ""
+    when_empty: manual
+    remediation: "redis.conf 配置 rename-command FLUSHALL \"\" 与 rename-command CONFIG 随机串"
+  - id: REDIS-BAK-01
+    title: 开启 AOF 持久化（数据备份恢复）
+    control: 数据备份恢复
+    ref: 8.1.4.9
+    severity: medium
+    command: "CONFIG GET appendonly"
+    op: "eq"
+    expected: "yes"
+    remediation: "redis.conf 设置 appendonly yes"
+  - id: REDIS-BAK-02
+    title: 设置 maxmemory 上限防止内存打爆宿主机
+    control: 入侵防范
+    ref: 8.1.4.4
+    severity: low
+    command: "CONFIG GET maxmemory"
+    op: ">"
+    expected: "0"
+    remediation: "CONFIG SET maxmemory <字节> 并写入配置"
+manual_items:
+  - id: REDIS-MAN-01
+    title: Redis 版本无已知高危漏洞（未授权访问 RCE）
+    ref: 8.1.4.4
+    method: "INFO server 查看版本，核对 CVE（建议 ≥6.2 并及时升级）"

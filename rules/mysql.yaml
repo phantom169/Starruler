@@ -1,0 +1,103 @@
+# MySQL 数据库 三级等保基线（等保2.0）
+target: mysql
+name: MySQL 三级等保基线
+collector: mysql
+items:
+  - id: MYSQL-AUTH-01
+    title: 已安装口令复杂度校验插件且长度≥8
+    control: 身份鉴别
+    ref: 8.1.4.1-a
+    severity: high
+    command: "SELECT variable_value FROM performance_schema.global_variables WHERE variable_name IN ('validate_password_length') "
+    op: ">="
+    expected: "8"
+    when_empty: fail
+    remediation: "安装 validate_password 组件（MySQL8: INSTALL COMPONENT 'file://component_validate_password'），设置 validate_password.length=8"
+  - id: MYSQL-AUTH-02
+    title: 口令使用期不大于90天（0=永不过期为不符合）
+    control: 身份鉴别
+    ref: 8.1.4.1-b
+    severity: medium
+    command: "SELECT IF(@@default_password_lifetime=0, 999, @@default_password_lifetime)"
+    op: "<="
+    expected: "90"
+    remediation: "my.cnf 设置 default_password_lifetime=90（MySQL 5.7.10+）"
+  - id: MYSQL-AUTH-03
+    title: root 不允许从任意主机远程登录
+    control: 访问控制
+    ref: 8.1.4.2
+    severity: high
+    command: "SELECT COUNT(*) FROM mysql.user WHERE user='root' AND host NOT IN ('localhost','127.0.0.1','::1')"
+    op: "eq"
+    expected: "0"
+    remediation: "DELETE FROM mysql.user WHERE user='root' AND host NOT IN ('localhost','127.0.0.1'); FLUSH PRIVILEGES;"
+  - id: MYSQL-AUTH-04
+    title: 不存在匿名账户
+    control: 访问控制
+    ref: 8.1.4.2
+    severity: high
+    command: "SELECT COUNT(*) FROM mysql.user WHERE user=''"
+    op: "eq"
+    expected: "0"
+    remediation: "DELETE FROM mysql.user WHERE user=''; FLUSH PRIVILEGES;"
+  - id: MYSQL-ACC-01
+    title: 禁用 local_infile 防止任意文件读取
+    control: 入侵防范
+    ref: 8.1.4.4
+    severity: medium
+    command: "SELECT @@local_infile"
+    op: "eq"
+    expected: "0"
+    remediation: "my.cnf 设置 local_infile=0"
+  - id: MYSQL-ACC-02
+    title: 符号链接禁用（防数据目录外读写）
+    control: 入侵防范
+    ref: 8.1.4.4
+    severity: low
+    command: "SELECT @@have_symlink"
+    op: "eq"
+    expected: "DISABLED"
+    remediation: "my.cnf 设置 skip_symbolic_links=yes"
+  - id: MYSQL-ACC-03
+    title: secure_file_priv 已限制导出目录（空串=不限制）
+    control: 数据保密性
+    ref: 8.1.4.8
+    severity: medium
+    command: "SELECT IF(@@secure_file_priv='', 'EMPTY', @@secure_file_priv)"
+    op: "ne"
+    expected: "EMPTY"
+    when_empty: manual
+    remediation: "my.cnf 设置 secure_file_priv=/tmp（或指定安全目录）"
+  - id: MYSQL-AUD-01
+    title: 开启 binlog 审计日志
+    control: 安全审计
+    ref: 8.1.4.3
+    severity: medium
+    command: "SELECT @@log_bin"
+    op: "eq"
+    expected: "1"
+    remediation: "my.cnf 设置 log_bin=mysql-bin 与 server_id"
+  - id: MYSQL-AUD-02
+    title: 不存在可从任意主机登录的普通账户
+    control: 访问控制
+    ref: 8.1.4.2
+    severity: high
+    command: "SELECT COUNT(*) FROM mysql.user WHERE host='%' AND user <> 'root'"
+    op: "eq"
+    expected: "0"
+    remediation: "收回 host='%' 的账户授权，按需限定来源网段"
+  - id: MYSQL-BAK-01
+    title: 开启慢查询日志（运维审计参考）
+    control: 安全审计
+    ref: 8.1.4.3
+    severity: low
+    command: "SELECT @@slow_query_log"
+    op: "eq"
+    expected: "1"
+    when_empty: manual
+    remediation: "SET GLOBAL slow_query_log=1; 并设置 slow_query_log_file"
+manual_items:
+  - id: MYSQL-MAN-01
+    title: 数据库重要数据定期备份与恢复演练
+    ref: 8.1.4.9
+    method: "核查 mysqldump/XtraBackup 备份策略与恢复演练记录"

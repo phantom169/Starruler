@@ -1,0 +1,65 @@
+# SQL Server 三级等保基线
+target: mssql
+name: SQL Server 三级等保基线
+collector: mssql
+items:
+  - id: MSSQL-AUTH-01
+    title: 登录审核模式启用（失败与成功均记录）
+    control: 安全审计
+    ref: 8.1.4.3
+    severity: medium
+    command: "SELECT CAST(SERVERPROPERTY('IsAuditInstalled') AS INT)"
+    op: "eq"
+    expected: "1"
+    when_empty: manual
+    remediation: "SSMS→服务器属性→安全性→登录审核选【失败和成功的登录】"
+  - id: MSSQL-AUTH-02
+    title: SQL 登录账户强制密码策略
+    control: 身份鉴别
+    ref: 8.1.4.1
+    severity: high
+    command: "SELECT COUNT(*) FROM sys.sql_logins WHERE is_policy_checked = 0"
+    op: "eq"
+    expected: "0"
+    remediation: "ALTER LOGIN xxx WITH CHECK_POLICY=ON"
+  - id: MSSQL-AUTH-03
+    title: SQL 登录账户强制密码过期
+    control: 身份鉴别
+    ref: 8.1.4.1-b
+    severity: medium
+    command: "SELECT COUNT(*) FROM sys.sql_logins WHERE is_expiration_checked = 0"
+    op: "eq"
+    expected: "0"
+    remediation: "ALTER LOGIN xxx WITH CHECK_EXPIRATION=ON"
+  - id: MSSQL-ACC-01
+    title: sa 账户已禁用或更名
+    control: 访问控制
+    ref: 8.1.4.2
+    severity: high
+    command: "SELECT COUNT(*) FROM sys.sql_logins WHERE name='sa' AND is_disabled=0"
+    op: "eq"
+    expected: "0"
+    remediation: "ALTER LOGIN sa DISABLE（用其他管理员账户替代）或更名"
+  - id: MSSQL-INTR-01
+    title: xp_cmdshell 已关闭
+    control: 入侵防范
+    ref: 8.1.4.4
+    severity: high
+    command: "SELECT CAST(value_in_use AS INT) FROM sys.configurations WHERE name='xp_cmdshell'"
+    op: "eq"
+    expected: "0"
+    remediation: "EXEC sp_configure 'xp_cmdshell',0; RECONFIGURE;"
+  - id: MSSQL-INTR-02
+    title: 跨数据库所有权链接已关闭
+    control: 访问控制
+    ref: 8.1.4.2
+    severity: low
+    command: "SELECT CAST(value_in_use AS INT) FROM sys.configurations WHERE name='cross db ownership chaining'"
+    op: "eq"
+    expected: "0"
+    remediation: "EXEC sp_configure 'cross db ownership chaining',0; RECONFIGURE;"
+manual_items:
+  - id: MSSQL-MAN-01
+    title: 数据库定期备份与恢复演练
+    ref: 8.1.4.9
+    method: "核查维护计划/Agent 备份作业与恢复演练记录"

@@ -1,0 +1,90 @@
+# 思科 IOS 网络设备 三级等保基线（SSH 交互式采集）
+target: cisco
+name: 思科IOS 三级等保基线
+collector: network
+items:
+  - id: CISCO-AUTH-01
+    title: 仅允许 SSH 远程管理（VTY 关闭 telnet）
+    control: 身份鉴别
+    ref: 8.1.4.1-d
+    severity: high
+    command: "show running-config | include transport input"
+    op: "regex"
+    expected: "transport input ssh"
+    when_empty: manual
+    remediation: "line vty 0 4 下 transport input ssh"
+  - id: CISCO-AUTH-02
+    title: SSH 版本为 2
+    control: 身份鉴别
+    ref: 8.1.4.1-d
+    severity: medium
+    command: "show running-config | include ip ssh version"
+    op: "regex"
+    expected: "ip ssh version 2"
+    when_empty: manual
+    remediation: "ip ssh version 2"
+  - id: CISCO-AUTH-03
+    title: 启用密码加密服务（service password-encryption）
+    control: 数据保密性
+    ref: 8.1.4.8
+    severity: medium
+    command: "show running-config | include service password-encryption"
+    op: "regex"
+    expected: "service password-encryption"
+    when_empty: fail
+    remediation: "service password-encryption"
+  - id: CISCO-AUTH-04
+    title: 使用 secret 而非明文 enable 密码
+    control: 身份鉴别
+    ref: 8.1.4.1
+    severity: high
+    command: "show running-config | include enable secret"
+    op: "regex"
+    expected: "enable secret"
+    when_empty: manual
+    remediation: "enable secret <强口令> 并删除 enable password"
+  - id: CISCO-ACC-01
+    title: VTY 线路配置 access-class 访问控制
+    control: 访问控制
+    ref: 8.1.4.2
+    severity: medium
+    command: "show running-config | include access-class"
+    op: "regex"
+    expected: "access-class [0-9]+ in"
+    when_empty: manual
+    remediation: "line vty 下 access-class <管理网段ACL> in"
+  - id: CISCO-ACC-02
+    title: 禁用 HTTP/HTTPS 管理服务
+    control: 访问控制
+    ref: 8.1.4.2
+    severity: medium
+    command: "show running-config | include ip http server"
+    op: "regex"
+    expected: "no ip http server"
+    when_empty: pass
+    remediation: "no ip http server（如需 Web 管理改用 https 并限源）"
+  - id: CISCO-AUD-01
+    title: 日志外发至 syslog 服务器
+    control: 安全审计
+    ref: 8.1.4.3
+    severity: medium
+    command: "show running-config | include logging host"
+    op: "regex"
+    expected: "logging host [0-9.]+"
+    when_empty: manual
+    remediation: "logging host x.x.x.x"
+  - id: CISCO-AUD-02
+    title: 配置 console 口登录认证
+    control: 身份鉴别
+    ref: 8.1.4.1
+    severity: medium
+    command: "show running-config | include line con"
+    op: "exists"
+    expected: ""
+    when_empty: manual
+    remediation: "line con 0 下 login local（配合本地账户）"
+manual_items:
+  - id: CISCO-MAN-01
+    title: AAA/TACACS+ 集中认证与账户唯一
+    ref: 8.1.4.2
+    method: "核查是否配置 aaa new-model 与集中认证服务器"

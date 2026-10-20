@@ -1,0 +1,250 @@
+# Linux 操作系统 三级等保基线（等保2.0 安全计算环境）
+# 适用：CentOS / RHEL / Ubuntu / 麒麟 / 统信 等主流发行版
+target: linux
+name: Linux 三级等保基线
+collector: ssh
+items:
+  # ===== 身份鉴别 8.1.4.1 =====
+  - id: LINUX-AUTH-01
+    title: 口令最小长度不小于8位
+    control: 身份鉴别
+    ref: 8.1.4.1-a
+    severity: medium
+    command: "grep -E '^PASS_MIN_LEN' /etc/login.defs | awk '{print $2}'"
+    op: ">="
+    expected: "8"
+    when_empty: fail
+    remediation: "编辑 /etc/login.defs，设置 PASS_MIN_LEN 8"
+  - id: LINUX-AUTH-02
+    title: 口令使用期不大于90天
+    control: 身份鉴别
+    ref: 8.1.4.1-b
+    severity: medium
+    command: "grep -E '^PASS_MAX_DAYS' /etc/login.defs | awk '{print $2}'"
+    op: "<="
+    expected: "90"
+    when_empty: fail
+    remediation: "编辑 /etc/login.defs，设置 PASS_MAX_DAYS 90"
+  - id: LINUX-AUTH-03
+    title: 口令更改提前告警天数不少于7天
+    control: 身份鉴别
+    ref: 8.1.4.1-b
+    severity: low
+    command: "grep -E '^PASS_WARN_AGE' /etc/login.defs | awk '{print $2}'"
+    op: ">="
+    expected: "7"
+    when_empty: fail
+    remediation: "编辑 /etc/login.defs，设置 PASS_WARN_AGE 7"
+  - id: LINUX-AUTH-04
+    title: 口令复杂度策略（PAM pwquality/cracklib）
+    control: 身份鉴别
+    ref: 8.1.4.1-a
+    severity: high
+    command: "grep -cE 'pam_pwquality|pam_cracklib' /etc/pam.d/system-auth /etc/pam.d/common-password 2>/dev/null | awk -F: '{s+=$2} END {print s}'"
+    op: ">="
+    expected: "1"
+    when_empty: fail
+    remediation: "安装 pam_pwquality 并在 /etc/pam.d/system-auth 添加 pam_pwquality.so try_first_pass retry=3"
+  - id: LINUX-AUTH-05
+    title: 登录失败锁定策略（pam_faillock/pam_tally2）
+    control: 身份鉴别
+    ref: 8.1.4.1-c
+    severity: high
+    command: "grep -cE 'pam_faillock|pam_tally2' /etc/pam.d/system-auth 2>/dev/null | awk -F: '{s+=$2} END {print s+0}'"
+    op: ">="
+    expected: "1"
+    when_empty: fail
+    remediation: "在 /etc/pam.d/system-auth 中配置 pam_faillock.so deny=5 unlock_time=600"
+  - id: LINUX-AUTH-06
+    title: SSH 禁止 root 直接登录
+    control: 身份鉴别
+    ref: 8.1.4.1-d
+    severity: high
+    command: "sshd -T 2>/dev/null | grep -i permitrootlogin | awk '{print $2}'"
+    op: "eq"
+    expected: "no"
+    when_empty: manual
+    remediation: "编辑 /etc/ssh/sshd_config 设置 PermitRootLogin no 并重启 sshd"
+  - id: LINUX-AUTH-07
+    title: SSH 最大认证尝试次数不大于4
+    control: 身份鉴别
+    ref: 8.1.4.1-c
+    severity: medium
+    command: "sshd -T 2>/dev/null | grep -i maxauthtries | awk '{print $2}'"
+    op: "<="
+    expected: "4"
+    when_empty: manual
+    remediation: "编辑 /etc/ssh/sshd_config 设置 MaxAuthTries 4"
+  - id: LINUX-AUTH-08
+    title: 禁用 telnet 等明文远程管理服务
+    control: 身份鉴别
+    ref: 8.1.4.1-d
+    severity: high
+    command: "systemctl is-active telnet.socket 2>/dev/null || echo inactive"
+    op: "eq"
+    expected: "inactive"
+    when_empty: pass
+    remediation: "systemctl disable --now telnet.socket"
+  # ===== 访问控制 8.1.4.2 =====
+  - id: LINUX-ACC-01
+    title: 不存在空口令账户
+    control: 访问控制
+    ref: 8.1.4.2
+    severity: high
+    command: "awk -F: '($2==\"\"){print $1}' /etc/shadow | wc -l"
+    op: "eq"
+    expected: "0"
+    when_empty: pass
+    remediation: "passwd -l 锁定空口令账户并强制设置强口令"
+  - id: LINUX-ACC-02
+    title: UID=0 的账户数量唯一（仅root）
+    control: 访问控制
+    ref: 8.1.4.2
+    severity: high
+    command: "awk -F: '($3==0){print $1}' /etc/passwd | wc -l"
+    op: "eq"
+    expected: "1"
+    remediation: "排查非 root 的 UID=0 账户并删除或降权"
+  - id: LINUX-ACC-03
+    title: /etc/passwd 文件权限为644
+    control: 访问控制
+    ref: 8.1.4.2
+    severity: medium
+    command: "stat -c %a /etc/passwd"
+    op: "eq"
+    expected: "644"
+    remediation: "chmod 644 /etc/passwd"
+  - id: LINUX-ACC-04
+    title: /etc/shadow 文件权限不高于600
+    control: 访问控制
+    ref: 8.1.4.2
+    severity: medium
+    command: "stat -c %a /etc/shadow"
+    op: "in"
+    expected: "0,400,600"
+    remediation: "chmod 600 /etc/shadow（或按发行版惯例 000）"
+  # ===== 安全审计 8.1.4.3 =====
+  - id: LINUX-AUD-01
+    title: auditd 审计服务运行中
+    control: 安全审计
+    ref: 8.1.4.3
+    severity: high
+    command: "systemctl is-active auditd 2>/dev/null || echo unknown"
+    op: "eq"
+    expected: "active"
+    when_empty: manual
+    remediation: "yum/apt 安装 audit 并 systemctl enable --now auditd（容器环境此项可能不适配）"
+  - id: LINUX-AUD-02
+    title: rsyslog 日志服务运行中
+    control: 安全审计
+    ref: 8.1.4.3
+    severity: medium
+    command: "systemctl is-active rsyslog 2>/dev/null || echo unknown"
+    op: "eq"
+    expected: "active"
+    when_empty: manual
+    remediation: "systemctl enable --now rsyslog"
+  - id: LINUX-AUD-03
+    title: 历史命令记录带时间戳
+    control: 安全审计
+    ref: 8.1.4.3
+    severity: low
+    command: "grep -c HISTTIMEFORMAT /etc/profile"
+    op: ">="
+    expected: "1"
+    when_empty: fail
+    remediation: "在 /etc/profile 追加 export HISTTIMEFORMAT=\"%F %T \""
+  # ===== 入侵防范 8.1.4.4 =====
+  - id: LINUX-INTR-01
+    title: 开启 tcp_syncookies 防护
+    control: 入侵防范
+    ref: 8.1.4.4
+    severity: medium
+    command: "sysctl -n net.ipv4.tcp_syncookies 2>/dev/null"
+    op: "eq"
+    expected: "1"
+    when_empty: manual
+    remediation: "sysctl -w net.ipv4.tcp_syncookies=1 并写入 /etc/sysctl.conf"
+  - id: LINUX-INTR-02
+    title: 忽略 ICMP 广播请求
+    control: 入侵防范
+    ref: 8.1.4.4
+    severity: low
+    command: "sysctl -n net.ipv4.icmp_echo_ignore_broadcasts 2>/dev/null"
+    op: "eq"
+    expected: "1"
+    when_empty: manual
+    remediation: "sysctl -w net.ipv4.icmp_echo_ignore_broadcasts=1"
+  - id: LINUX-INTR-03
+    title: 禁用 rsh/rlogin 非安全服务
+    control: 入侵防范
+    ref: 8.1.4.4
+    severity: medium
+    command: "systemctl is-active rsh.socket 2>/dev/null || echo inactive"
+    op: "eq"
+    expected: "inactive"
+    when_empty: pass
+    remediation: "systemctl disable --now rsh.socket"
+  - id: LINUX-INTR-04
+    title: 限制 core dump 生成
+    control: 入侵防范
+    ref: 8.1.4.4
+    severity: low
+    command: "grep -v '^#' /etc/security/limits.conf | grep -cE 'hard[[:space:]]+core[[:space:]]+0'"
+    op: ">="
+    expected: "1"
+    when_empty: fail
+    remediation: "在 /etc/security/limits.conf 添加 * hard core 0"
+  - id: LINUX-INTR-05
+    title: 记录 cron 行为日志
+    control: 安全审计
+    ref: 8.1.4.3
+    severity: low
+    command: "grep -c '^cron[.]' /etc/rsyslog.conf 2>/dev/null | awk '{print $1+0}'"
+    op: ">="
+    expected: "1"
+    when_empty: manual
+    remediation: "在 /etc/rsyslog.conf 启用 cron.* 日志"
+  - id: LINUX-INTR-06
+    title: SSH 使用协议版本2（OpenSSH 7.x+ 默认满足）
+    control: 身份鉴别
+    ref: 8.1.4.1-d
+    severity: low
+    command: "sshd -T 2>/dev/null | grep -ci 'protocol 2'"
+    op: ">="
+    expected: "0"
+    when_empty: pass
+    remediation: "保持 OpenSSH 7.x 以上版本即默认仅支持 SSH2"
+  - id: LINUX-INTR-07
+    title: SSH 空闲会话超时自动断开
+    control: 访问控制
+    ref: 8.1.4.2
+    severity: medium
+    command: "sshd -T 2>/dev/null | grep -i clientaliveinterval | awk '{print $2}'"
+    op: "<="
+    expected: "600"
+    when_empty: manual
+    remediation: "sshd_config 设置 ClientAliveInterval 300 与 ClientAliveCountMax 2"
+  - id: LINUX-INTR-08
+    title: 禁止 SSH X11 转发
+    control: 入侵防范
+    ref: 8.1.4.4
+    severity: low
+    command: "sshd -T 2>/dev/null | grep -i x11forwarding | awk '{print $2}'"
+    op: "eq"
+    expected: "no"
+    when_empty: manual
+    remediation: "sshd_config 设置 X11Forwarding no"
+manual_items:
+  - id: LINUX-MAN-01
+    title: 重要核心服务器是否采用双因素认证（动态口令/证书）
+    ref: 8.1.4.1-e
+    method: "访谈系统管理员，查看是否部署堡垒机动态口令、USBKey 或证书双因素；三级要求重要系统双因素认证"
+  - id: LINUX-MAN-02
+    title: 是否部署恶意代码防范产品并统一管理
+    ref: 8.1.4.5
+    method: "检查是否安装企业版防病毒/主机安全 Agent（如奇安信天擎、青藤），病毒库是否最新"
+  - id: LINUX-MAN-03
+    title: 重要数据是否定期备份并异地存储
+    ref: 8.1.4.9
+    method: "检查备份策略与异地备份记录，核心数据建议每天全备+异地留存"

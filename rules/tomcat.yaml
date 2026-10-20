@@ -1,0 +1,76 @@
+# Tomcat 三级等保基线（SSH 读取部署机配置；资产 vars 配置 tomcat_home）
+target: tomcat
+name: Tomcat 三级等保基线
+collector: ssh
+items:
+  - id: TOMCAT-AUTH-01
+    title: 已删除/禁用 Manager 管理应用
+    control: 访问控制
+    ref: 8.1.4.2
+    severity: high
+    command: "ls {tomcat_home}/webapps 2>/dev/null | grep -ci 'manager'"
+    op: "eq"
+    expected: "0"
+    when_empty: pass
+    remediation: "删除 webapps/manager 与 host-manager（或限定本机访问+强口令）"
+  - id: TOMCAT-AUTH-02
+    title: 示例应用与文档已删除
+    control: 入侵防范
+    ref: 8.1.4.4
+    severity: medium
+    command: "ls {tomcat_home}/webapps 2>/dev/null | grep -ciE 'examples|docs|ROOT' | awk '{print $1+0}'"
+    op: "<="
+    expected: "1"
+    when_empty: pass
+    remediation: "删除 webapps 下 examples、docs 等示例应用"
+  - id: TOMCAT-ACC-01
+    title: 关闭目录列表（listing false）
+    control: 访问控制
+    ref: 8.1.4.2
+    severity: medium
+    command: "grep -c 'listing>.*false' {tomcat_home}/conf/web.xml 2>/dev/null | awk '{print $1+0}'"
+    op: ">="
+    expected: "1"
+    when_empty: fail
+    remediation: "web.xml 中 listings 参数设为 false（Tomcat7+ 默认 false）"
+  - id: TOMCAT-ACC-02
+    title: 关闭自动部署（autoDeploy false）
+    control: 入侵防范
+    ref: 8.1.4.4
+    severity: medium
+    command: "grep -E 'autoDeploy' {tomcat_home}/conf/server.xml 2>/dev/null | grep -o 'autoDeploy=\"[a-z]*\"' | grep -c 'false'"
+    op: ">="
+    expected: "1"
+    when_empty: manual
+    remediation: "server.xml Host 段设置 autoDeploy=\"false\" deployXML=\"false\""
+  - id: TOMCAT-ACC-03
+    title: 修改默认 shutdown 端口与命令
+    control: 访问控制
+    ref: 8.1.4.2
+    severity: high
+    command: "grep -o 'shutdown=\"[A-Za-z]*\"' {tomcat_home}/conf/server.xml 2>/dev/null | grep -cv 'SHUTDOWN'"
+    op: ">="
+    expected: "1"
+    when_empty: manual
+    remediation: "server.xml 修改 shutdown 为随机长串，或将 8005 端口改为 -1"
+  - id: TOMCAT-ACC-04
+    title: AJP 连接器已禁用或设置密钥
+    control: 入侵防范
+    ref: 8.1.4.4
+    severity: high
+    command: "grep -A3 'AJP/1.3' {tomcat_home}/conf/server.xml 2>/dev/null | grep -cE 'secretRequired=\"true\"|<!\\-\\-.*AJP' | awk '{print $1+0}'"
+    op: ">="
+    expected: "1"
+    when_empty: manual
+    note: 防 Ghostcat(CVE-2020-1938)；Tomcat9+ 可直接注释 AJP 连接器
+    remediation: "注释 AJP Connector，或设置 requiredSecret 与 secretRequired=true"
+  - id: TOMCAT-INTR-01
+    title: 以非 root 用户运行 Tomcat
+    control: 访问控制
+    ref: 8.1.4.2
+    severity: medium
+    command: "ps -ef | grep '[t]omcat' | grep -v root | head -1 | wc -l"
+    op: ">="
+    expected: "1"
+    when_empty: manual
+    remediation: "为 Tomcat 建独立低权限用户运行"

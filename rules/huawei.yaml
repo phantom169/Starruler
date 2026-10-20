@@ -1,0 +1,94 @@
+# 华为 VRP 网络设备 三级等保基线（SSH 交互式采集）
+target: huawei
+name: 华为VRP 三级等保基线
+collector: network
+items:
+  - id: HW-AUTH-01
+    title: 禁用 Telnet 远程管理（仅SSH）
+    control: 身份鉴别
+    ref: 8.1.4.1-d
+    severity: high
+    command: "display current-configuration | include telnet server"
+    op: "regex"
+    expected: "telnet server disable"
+    when_empty: manual
+    remediation: "系统视图执行 undo telnet server enable"
+  - id: HW-AUTH-02
+    title: SSH 服务器已启用
+    control: 身份鉴别
+    ref: 8.1.4.1-d
+    severity: high
+    command: "display current-configuration | include stelnet server"
+    op: "regex"
+    expected: "stelnet server enable"
+    when_empty: manual
+    remediation: "stelnet server enable 并配置 ssh user 认证方式"
+  - id: HW-AUTH-03
+    title: VTY 用户界面采用 AAA 认证
+    control: 身份鉴别
+    ref: 8.1.4.1
+    severity: medium
+    command: "display current-configuration | include vty"
+    op: "regex"
+    expected: "authentication-mode aaa"
+    when_empty: manual
+    remediation: "user-interface vty 0 4 下配置 authentication-mode aaa"
+  - id: HW-AUTH-04
+    title: 登录失败处理（AAA锁定策略）
+    control: 身份鉴别
+    ref: 8.1.4.1-c
+    severity: medium
+    command: "display current-configuration | include authentication fail"
+    op: "regex"
+    expected: "reaction-authen-fail|error-down|block"
+    when_empty: manual
+    remediation: "aaa 视图配置 local-aaa-user wrong-password 并限制尝试次数与锁定时间"
+  - id: HW-ACC-01
+    title: VTY 线路配置 ACL 访问控制
+    control: 访问控制
+    ref: 8.1.4.2
+    severity: medium
+    command: "display current-configuration | include vty"
+    op: "regex"
+    expected: "acl [0-9]+ in"
+    when_empty: manual
+    remediation: "定义管理网段 ACL 并在 vty 下 acl xxx inbound"
+  - id: HW-AUD-01
+    title: 采用 SNMPv3（禁用v1/v2c团体字）
+    control: 安全审计
+    ref: 8.1.4.3
+    severity: medium
+    command: "display current-configuration | include snmp-agent version"
+    op: "regex"
+    expected: "v3"
+    when_empty: manual
+    remediation: "snmp-agent sys-info version v3 并 undo v1/v2c"
+  - id: HW-AUD-02
+    title: 日志外发至日志主机
+    control: 安全审计
+    ref: 8.1.4.3
+    severity: medium
+    command: "display current-configuration | include info-center loghost"
+    op: "regex"
+    expected: "info-center loghost [0-9.]+"
+    when_empty: manual
+    remediation: "info-center loghost x.x.x.x 配置集中日志"
+  - id: HW-INTR-01
+    title: 未使用默认团体字 public/private
+    control: 身份鉴别
+    ref: 8.1.4.1
+    severity: high
+    command: "display current-configuration | include community"
+    op: "not_contains"
+    expected: "community public"
+    when_empty: pass
+    remediation: "修改 SNMP 团体字为复杂随机串或升级 v3（另需人工确认不含 community private）"
+manual_items:
+  - id: HW-MAN-01
+    title: 设备登录是否采用双因素/堡垒机纳管
+    ref: 8.1.4.1-e
+    method: "核查是否统一经堡垒机登录、是否配置双因素认证"
+  - id: HW-MAN-02
+    title: 配置定期备份与恢复演练
+    ref: 8.1.4.9
+    method: "核查 TFTP/FTP 配置备份计划与恢复记录"

@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>星尺 Star ruler</title>
+<style>
+:root {
+  --primary:#2E90FA; --primary-hover:#1B74E0; --primary-soft:#E8F2FE; --primary-border:#BBD8F8;
+  --bg-page:#F4F8FC; --bg-card:#FFFFFF; --bg-header:#F0F6FC; --border:#E1EAF5;
+  --text-1:#17233B; --text-2:#5C6F85; --text-3:#93A5B8;
+  --ok:#0FA36B; --ok-bg:#E6F7F0; --warn:#F59E0B; --warn-bg:#FEF5E7;
+  --danger:#E5484D; --danger-bg:#FDECEC; --info:#2E90FA; --info-bg:#E8F2FE;
+  --shadow:0 1px 3px rgba(30,90,160,.08); --radius:8px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:"Microsoft YaHei","Segoe UI",system-ui,sans-serif;background:var(--bg-page);color:var(--text-1);font-size:14px}
+a{color:var(--primary);text-decoration:none}
+/* 布局 */
+.layout{display:flex;min-height:100vh}
+.sidebar{width:210px;background:var(--bg-card);border-right:1px solid var(--border);padding:16px 0;flex-shrink:0;position:sticky;top:0;height:100vh;overflow-y:auto}
+.logo{padding:6px 20px 18px;font-size:17px;font-weight:700;color:var(--primary)}
+.logo small{display:block;font-size:11px;color:var(--text-3);font-weight:400;margin-top:2px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 20px;color:var(--text-2);cursor:pointer;border-left:3px solid transparent}
+.nav-item:hover{background:var(--bg-header);color:var(--primary)}
+.nav-item.active{background:var(--primary-soft);color:var(--primary);border-left-color:var(--primary);font-weight:600}
+.main{flex:1;padding:20px 28px;max-width:1400px}
+.topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
+.topbar h1{font-size:20px}
+.topbar .sub{color:var(--text-2);font-size:13px;margin-top:4px}
+/* 组件 */
+.card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:18px;margin-bottom:16px}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:6px;border:1px solid var(--primary);background:var(--primary);color:#fff;cursor:pointer;font-size:13px}
+.btn:hover{background:var(--primary-hover)}
+.btn.ghost{background:#fff;color:var(--primary)}
+.btn.danger{background:var(--danger);border-color:var(--danger)}
+.btn.danger:hover{background:#c7353a}
+.btn.sm{padding:4px 10px;font-size:12px}
+table.tb{width:100%;border-collapse:collapse;font-size:13px}
+.tb th{background:var(--bg-header);text-align:left;padding:8px 10px;border-bottom:1px solid var(--border);font-weight:600;color:var(--text-2)}
+.tb td{padding:8px 10px;border-bottom:1px solid var(--border)}
+.tb tr:hover td{background:var(--primary-soft)}
+.tag{display:inline-block;padding:2px 10px;border-radius:10px;font-size:12px;font-weight:500}
+.ok-bg{background:var(--ok-bg);color:var(--ok)} .warn-bg{background:var(--warn-bg);color:#B9770E}
+.danger-bg{background:var(--danger-bg);color:var(--danger)} .info-bg{background:var(--info-bg);color:var(--info)}
+.dim-bg{background:var(--bg-header);color:var(--text-2)}
+.mono{font-family:Consolas,monospace}
+input,select,textarea{padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:#fff;color:var(--text-1);outline:none;width:100%}
+input:focus,select:focus,textarea:focus{border-color:var(--primary)}
+label{display:block;font-size:12px;color:var(--text-2);margin:10px 0 4px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:16px}
+.kpi{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow)}
+.kpi b{font-size:26px;display:block;margin-top:4px}
+.kpi span{font-size:12px;color:var(--text-2)}
+.progress{height:6px;background:var(--bg-header);border-radius:3px;overflow:hidden;margin-top:6px}
+.progress>div{height:100%;background:var(--primary);border-radius:3px;transition:width .4s}
+.muted{color:var(--text-2)} .small{font-size:12px}
+.modal-mask{position:fixed;inset:0;background:rgba(23,35,59,.35);display:none;align-items:center;justify-content:center;z-index:50}
+.modal-mask.show{display:flex}
+.modal{background:#fff;border-radius:10px;width:640px;max-width:94vw;max-height:88vh;overflow-y:auto;padding:22px}
+.modal h3{margin-bottom:8px;font-size:16px}
+.toast{position:fixed;top:18px;right:18px;background:#17233B;color:#fff;padding:10px 18px;border-radius:8px;z-index:99;display:none;font-size:13px}
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.toolbar input,.toolbar select{width:auto;min-width:160px}
+.empty{padding:40px;text-align:center;color:var(--text-3)}
+.flexrow{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+code.cmd{background:var(--bg-header);padding:2px 8px;border-radius:4px;font-family:Consolas,monospace;font-size:12px}
+.bar-mini{width:120px}
+</style>
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="logo">星尺<small>弱口令 · 等保基线核查</small></div>
+    <div class="nav-item active" data-page="dashboard">📊 仪表盘</div>
+    <div class="nav-item" data-page="discover">🛰️ 发现任务</div>
+    <div class="nav-item" data-page="hosts">💻 主机资产</div>
+    <div class="nav-item" data-page="assets">🔐 核查资产</div>
+    <div class="nav-item" data-page="tasks">📋 任务中心</div>
+    <div class="nav-item" data-page="dicts">📚 字典管理</div>
+    <div class="nav-item" data-page="rules">📖 规则库</div>
+    <div class="nav-item" data-page="probes">📡 探针管理</div>
+    <div class="nav-item" data-page="nettool">🧰 连通探测</div>
+  </aside>
+  <main class="main">
+    <div class="topbar"><div><h1 id="pageTitle">仪表盘</h1><div class="sub" id="pageSub"></div></div></div>
+    <div id="content"></div>
+  </main>
+</div>
+<div class="modal-mask" id="modalMask"><div class="modal" id="modal"></div></div>
+<div class="toast" id="toast"></div>
+<script>
+// ============ 基础 ============
+const $=s=>document.querySelector(s);
+const content=$('#content');
+let pollTimer=null;
+function toast(msg,ok=true){const t=$('#toast');t.textContent=msg;t.style.display='block';t.style.background=ok?'#0FA36B':'#E5484D';setTimeout(()=>t.style.display='none',2600)}
+async function api(path,opt={}){
+  const r=await fetch('/api'+path,{headers:{'Content-Type':'application/json'},...opt});
+  if(!r.ok){let m='请求失败';try{const j=await r.json();m=j.error||m}catch(e){}throw new Error(m)}
+  return r.json();
+}
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function openModal(html){$('#modal').innerHTML=html;$('#modalMask').classList.add('show')}
+function closeModal(){$('#modalMask').classList.remove('show')}
+$('#modalMask').addEventListener('click',e=>{if(e.target.id==='modalMask')closeModal()});
+function statusTag(s){
+  const m={running:['info-bg','运行中'],pending:['info-bg','排队中'],paused:['warn-bg','已暂停'],done:['ok-bg','已完成'],failed:['danger-bg','失败'],canceled:['dim-bg','已取消'],online:['ok-bg','在线'],offline:['dim-bg','离线'],disabled:['danger-bg','已禁用']};
+  const k=String(s||'');const[t,txt]=m[k]||['dim-bg',k||'未知'];return `<span class="tag ${t}">${txt}</span>`;
+}
+const PAGES={dashboard:'仪表盘',discover:'发现任务',hosts:'主机资产',assets:'核查资产',tasks:'任务中心',dicts:'字典管理',rules:'规则库',probes:'探针管理',nettool:'连通探测'};
+
+// ============ 路由 ============
+document.querySelectorAll('.nav-item').forEach(el=>el.addEventListener('click',()=>showPage(el.dataset.page)));
+function showPage(p){
+  clearInterval(pollTimer);
+  document.querySelectorAll('.nav-item').forEach(x=>x.classList.toggle('active',x.dataset.page===p));
+  $('#pageTitle').textContent=PAGES[p]||p;
+  ({dashboard:renderDashboard,discover:renderDiscover,hosts:renderHosts,assets:renderAssets,tasks:renderTasks,dicts:renderDicts,rules:renderRules,probes:renderProbes,nettool:renderNettool}[p]||renderDashboard)();
+}
+
+// ============ 仪表盘 ============
+async function renderDashboard(){
+  const d=await api('/dashboard');
+  let svcRows=Object.entries(d.service_stats||{}).sort((a,b)=>b[1]-a[1]).slice(0,12)
+    .map(([t,n])=>`<tr><td class="mono">${esc(t)}</td><td><b>${n}</b></td></tr>`).join('')||'<tr><td class="empty">暂无数据，先执行发现任务</td></tr>';
+  content.innerHTML=`
+  <div class="kpis">
+    <div class="kpi"><span>主机</span><b>${d.hosts||0}</b></div>
+    <div class="kpi"><span>服务</span><b>${d.services||0}</b></div>
+    <div class="kpi"><span>弱口令命中</span><b style="color:var(--danger)">${d.weak_hits||0}</b></div>
+    <div class="kpi"><span>基线合规项</span><b style="color:var(--ok)">${d.comply||0}</b></div>
+    <div class="kpi"><span>基线不合规</span><b style="color:var(--danger)">${d.non_comply||0}</b></div>
+    <div class="kpi"><span>待人工判定</span><b style="color:var(--warn)">${d.manual||0}</b></div>
+  </div>
+  <div class="grid2">
+    <div class="card"><h3 style="margin-bottom:10px">服务类型分布</h3><table class="tb"><tr><th>类型</th><th>数量</th></tr>${svcRows}</table></div>
+    <div class="card"><h3 style="margin-bottom:10px">最近任务</h3><table class="tb"><tr><th>名称</th><th>类型</th><th>状态</th></tr>
+      ${(d.recent_tasks||[]).slice(0,6).map(t=>`<tr style="cursor:pointer" onclick="showPage('tasks')"><td>${esc(t.name||t.id)}</td><td class="small">${esc(t.type)}</td><td>${statusTag(t.status)}</td></tr>`).join('')||'<tr><td colspan=3 class="empty">暂无任务</td></tr>'}
+    </table></div>
+  </div>
+  <div class="card"><h3 style="margin-bottom:8px">支持的弱口令协议（${(d.protocols||[]).length} 种）</h3>
+    <div class="flexrow">${(d.protocols||[]).map(p=>`<span class="tag info-bg mono">${p}</span>`).join('')}</div></div>`;
+}
+
+// ============ 发现任务 ============
+async function renderDiscover(){
+  content.innerHTML=`
+  <div class="card">
+    <h3 style="margin-bottom:6px">新建发现任务</h3>
+    <p class="muted small" style="margin-bottom:8px">输入 CIDR 网段，系统自动完成：存活探测 → 端口扫描 → 服务识别 ${'→'} 对可爆破服务自动执行弱口令检测（勾选时）。</p>
+    <label>网段列表（每行一个，如 10.0.1.0/24，最大 /24 单段可自动分片）</label>
+    <textarea id="dCidrs" rows="4" placeholder="10.0.1.0/24&#10;192.168.10.0/24"></textarea>
+    <div class="grid3">
+      <div><label>端口策略</label><select id="dPortMode"><option value="top">Top 80（推荐）</option><option value="custom">自定义端口</option><option value="all">全端口（慢）</option></select></div>
+      <div><label>扫描并发/分片</label><input id="dConc" type="number" value="256"></div>
+      <div><label>发现即测弱口令</label><select id="dWeak"><option value="discover_weakpwd">是（推荐）</option><option value="discover">否，仅盘点</option></select></div>
+    </div>
+    <div id="dCustomWrap" style="display:none"><label>自定义端口（逗号分隔）</label><input id="dCustom" placeholder="22,80,3306,6379"></div>
+    <div class="grid3">
+      <div><label>爆破并发</label><input id="wConc" type="number" value="500"></div>
+      <div><label>单账户尝试上限(防锁定)</label><input id="wMaxTry" type="number" value="20"></div>
+      <div><label>超时(秒)</label><input id="wTimeout" type="number" value="5"></div>
+    </div>
+    <div style="margin-top:14px"><button class="btn" onclick="createDiscoverTask()">🚀 启动发现任务</button></div>
+  </div>
+  <div id="discoverTasks"></div>`;
+  document.getElementById('dPortMode').addEventListener('change',e=>document.getElementById('dCustomWrap').style.display=e.target.value==='custom'?'':'none');
+  renderTaskList('discoverTasks');
+}
+async function createDiscoverTask(){
+  const cidrs=document.getElementById('dCidrs').value.split('\n').map(s=>s.trim()).filter(Boolean);
+  if(!cidrs.length)return toast('请输入网段',false);
+  const cfg={cidrs,port_mode:document.getElementById('dPortMode').value,scan_conc:+document.getElementById('dConc').value,
+    weak_opts:{concurrency:+document.getElementById('wConc').value,max_try_per_user:+document.getElementById('wMaxTry').value,timeout_sec:+document.getElementById('wTimeout').value}};
+  if(cfg.port_mode==='custom')cfg.custom_ports=document.getElementById('dCustom').value.split(',').map(s=>+s.trim()).filter(Boolean);
+  const type=document.getElementById('dWeak').value;
+  try{const t=await api('/tasks',{method:'POST',body:JSON.stringify({name:'发现任务 '+new Date().toLocaleString(),type,config:cfg})});toast('任务已创建 #'+t.id);renderTaskList('discoverTasks')}
+  catch(e){toast(e.message,false)}
+}
+
+// ============ 任务中心 ============
+async function renderTasks(){content.innerHTML='<div id="taskArea"></div>';renderTaskList('taskArea');
+  pollTimer=setInterval(()=>renderTaskList('taskArea'),3000)}
+let currentTaskListEl='taskArea';
+async function renderTaskList(el){
+  const area=document.getElementById(el);if(!area)return;
+  currentTaskListEl=el;
+  const tasks=(await api('/tasks'))||[];
+  area.innerHTML=`<div class="card"><h3 style="margin-bottom:10px">任务列表</h3><table class="tb">
+  <tr><th>ID</th><th>名称</th><th>类型</th><th>状态</th><th style="width:180px">进度</th><th>统计</th><th>操作</th></tr>
+  ${tasks.map(t=>{
+    const s=t.stats||{};const total=s.shards_total||0,done=(s.shards_done||0)+(s.shards_failed||0);
+    const pct=total?Math.round(done*100/total):0;
+    const statTxt=[s.weak_hits!=null?`命中${s.weak_hits}`:null,s.weak_attempts!=null?`尝试${s.weak_attempts}`:null,s.alive!=null?`存活${s.alive}`:null,s.baseline_checks!=null?`核查${s.baseline_checks}`:null].filter(Boolean).join(' / ')||'—';
+    return `<tr><td>${t.id}</td><td>${esc(t.name)}</td><td class="small">${typeTxt(t.type)}</td><td>${statusTag(t.status)}</td>
+    <td><div class="small">${done}/${total} 分片 (${pct}%)</div><div class="progress"><div style="width:${pct}%"></div></div></td>
+    <td class="small">${statTxt}</td>
+    <td class="flexrow">
+    ${(t.status==='running'||t.status==='pending')?`<button class="btn ghost sm" onclick="pauseTask(${t.id})">暂停</button>`:''}
+    ${t.status==='paused'?`<button class="btn sm" onclick="resumeTask(${t.id})">恢复</button>`:''}
+    ${(t.status==='running'||t.status==='pending'||t.status==='paused')?`<button class="btn ghost sm" onclick="cancelTask(${t.id})">取消</button>`:''}
+    <button class="btn ghost sm" onclick="showTaskResult(${t.id},'${t.type}')">结果</button>
+    <a class="btn ghost sm" href="/api/report/${t.id}" target="_blank">报告</a>
+    <a class="btn ghost sm" href="/api/export/${t.id}?type=weak" target="_blank">CSV</a>
+    <button class="btn danger sm" onclick="deleteTask(${t.id})">删除</button>
+    </td></tr>`}).join('')||'<tr><td colspan=7 class="empty">暂无任务</td></tr>'}
+  </table></div>`;
+}
+function typeTxt(t){return{discover:'仅发现',discover_weakpwd:'发现+弱口令',weakpwd:'弱口令',baseline:'基线核查'}[t]||t}
+async function cancelTask(id){try{await api(`/tasks/${id}/cancel`,{method:'POST'});toast('已取消')}catch(e){toast(e.message,false)}}
+async function pauseTask(id){try{await api(`/tasks/${id}/pause`,{method:'POST'});toast('已暂停：不再派发新分片，执行中的跑完即挂起')}catch(e){toast(e.message,false)}renderTaskList(currentTaskListEl)}
+async function resumeTask(id){try{await api(`/tasks/${id}/resume`,{method:'POST'});toast('已恢复，继续派发剩余分片')}catch(e){toast(e.message,false)}renderTaskList(currentTaskListEl)}
+async function deleteTask(id){
+  if(!confirm('确认删除该任务？分片与全部扫描结果将一并删除，不可恢复。'))return;
+  try{await api(`/tasks/${id}`,{method:'DELETE'});toast('任务已删除')}catch(e){toast(e.message,false)}
+  renderTaskList(currentTaskListEl);
+}
+async function showTaskResult(id,type){
+  openModal(`<h3>任务 #${id} 结果</h3><div id="taskDetail" class="small">加载中...</div>`);
+  let html='';
+  if(type!=='baseline'){
+    const weak=(await api(`/tasks/${id}/weak`))||[];
+    html+=`<h3 style="margin:10px 0 6px">弱口令命中（${weak.filter(x=>!x.manual).length}）/ 待人工（${weak.filter(x=>x.manual).length}）</h3>
+    <table class="tb"><tr><th>IP</th><th>协议</th><th>端口</th><th>账号</th><th>口令</th><th>详情</th></tr>
+    ${weak.map(x=>`<tr><td class="mono">${esc(x.ip)}</td><td>${esc(x.protocol)}</td><td>${x.port}</td><td>${esc(x.username)}</td>
+    <td class="mono" style="color:var(--danger);font-weight:600">${esc(x.password)}</td><td class="small">${esc(x.detail)} ${x.manual?'<span class="tag warn-bg">人工</span>':''}</td></tr>`).join('')||'<tr><td colspan=6 class="empty">无命中</td></tr>'}</table>`;
+  }
+  if(type==='baseline'||type==='weakpwd'||type==='discover_weakpwd'){
+    const base=(await api(`/tasks/${id}/baseline`))||[];
+    if(base.length){
+      const g={1:[],0:[],'-1':[]};base.forEach(x=>g[x.passed]?.push(x));
+      html+=`<h3 style="margin:14px 0 6px">基线核查：<span class="tag ok-bg">合规 ${g[1].length}</span> <span class="tag danger-bg">不合规 ${g[0].length}</span> <span class="tag warn-bg">人工 ${g['-1'].length}</span></h3>
+      <table class="tb"><tr><th>资产</th><th>规则</th><th>条款</th><th>实际值</th><th>期望</th><th>判定</th><th>整改建议</th></tr>
+      ${base.map(x=>`<tr><td class="mono">${esc(x.assetIp)}</td><td>${esc(x.title)}</td><td class="small">${esc(x.ref)}</td><td class="small mono">${esc(x.actual)}</td><td class="small mono">${esc(x.expected)}</td>
+      <td>${x.passed===1?'<span class="tag ok-bg">合规</span>':x.passed===0?'<span class="tag danger-bg">不合规</span>':'<span class="tag warn-bg">人工</span>'}</td><td class="small">${esc(x.remediation)}</td></tr>`).join('')}</table>`;
+    }
+  }
+  document.getElementById('taskDetail').innerHTML=html;
+}
+
+// ============ 主机资产 ============
+async function renderHosts(){
+  const keyword=$('#hostKeyword')?.value||'';
+  const hosts=(await api('/hosts?keyword='+encodeURIComponent(keyword)))||{items:[],total:0};
+  const items=hosts.items||[];
+  content.innerHTML=`
+  <div class="toolbar"><input id="hostKeyword" placeholder="搜索 IP..." value="${esc(keyword)}"><button class="btn ghost" onclick="renderHosts()">搜索</button>
+  <span class="muted small">共 ${hosts.total} 台主机（点击行查看服务明细）</span></div>
+  <div class="card"><table class="tb"><tr><th>IP</th><th>来源</th><th>系统线索</th><th>首次发现</th><th>最近发现</th></tr>
+  ${items.map(h=>`<tr style="cursor:pointer" onclick="showHostServices('${esc(h.ip)}')"><td class="mono">${esc(h.ip)}</td><td class="small">${h.source==='discovered'?'自动发现':'手工'}</td><td class="small">${esc(h.osGuess||'—')}</td><td class="small">${h.firstSeen?.slice(0,19)}</td><td class="small">${h.lastSeen?.slice(0,19)}</td></tr>`).join('')||'<tr><td colspan=5 class="empty">暂无主机，先执行发现任务</td></tr>'}
+  </table></div>`;
+}
+async function showHostServices(ip){
+  const svcs=(await api(`/hosts/${ip}/services`))||[];
+  const types=['ssh','mysql','redis','mongodb','postgres','mssql','oracle','telnet','ftp','smb','snmp','http','http_basic','http_form','tomcat','unknown'];
+  openModal(`<h3>${esc(ip)} · 服务明细（${svcs.length}）</h3>
+  <table class="tb"><tr><th>端口</th><th>识别类型</th><th>置信度</th><th>Banner</th><th>指认</th></tr>
+  ${svcs.map(s=>`<tr><td class="mono">${s.port}</td><td><span class="tag ${s.type==='unknown'?'warn-bg':'info-bg'} mono">${esc(s.type)}</span></td><td>${s.confidence}%</td><td class="small mono" style="max-width:260px;word-break:break-all">${esc(s.banner||'')}</td>
+  <td>${s.manual?'<span class="tag ok-bg">已指认</span>':`<select onchange="assignSvc(${s.id},this.value)" class="small" style="width:110px;padding:4px">${types.map(t=>`<option value="${t}" ${t===s.type?'selected':''}>${t}</option>`).join('')}</select>`}</td></tr>`).join('')||'<tr><td colspan=5 class="empty">无开放服务</td></tr>'}
+  </table><p class="small muted" style="margin-top:8px">低置信或 unknown 的服务可人工指认类型，指认后将被弱口令引擎按对应协议爆破。</p>`);
+}
+async function assignSvc(id,type){try{await api(`/services/${id}/assign`,{method:'POST',body:JSON.stringify({type})});toast('已指认为 '+type)}catch(e){toast(e.message,false)}}
+
+// ============ 核查资产 ============
+async function renderAssets(){
+  const assets=(await api('/assets'))||[];
+  window._assets=assets;
+  content.innerHTML=`
+  <div class="toolbar"><button class="btn" onclick="showAssetModal()">+ 新增核查资产</button>
+  <button class="btn ghost" onclick="showFromHostsModal()">从发现主机批量转化</button>
+  <span class="muted small">核查资产 = 主机 + 登录凭据，用于等保基线核查（${assets.length}）</span></div>
+  <div class="card"><table class="tb"><tr><th>IP</th><th>名称</th><th>类型</th><th>接入</th><th>端口</th><th>账号</th><th>操作</th></tr>
+  ${assets.map(a=>`<tr><td class="mono">${esc(a.ip)}</td><td>${esc(a.name)}</td><td><span class="tag info-bg">${esc(a.subType)}</span></td><td class="small">${esc(a.accessProto)}</td><td>${a.accessPort||'—'}</td><td class="small mono">${esc(a.credUser)}</td>
+  <td class="flexrow"><button class="btn ghost sm" onclick="showAssetModal(${a.id})">编辑</button><button class="btn danger sm" onclick="delAsset(${a.id})">删除</button></td></tr>`).join('')||'<tr><td colspan=7 class="empty">暂无核查资产。可从发现主机一键转化（自动带出 IP，只需补登录凭据）。</td></tr>'}
+  </table></div>
+  <div class="card"><h3 style="margin-bottom:10px">发起基线核查</h3>
+  <div class="flexrow"><span class="muted small">对上述资产执行等保基线核查（按资产类型自动匹配规则包）：</span>
+  <button class="btn" onclick="runBaseline()">📋 启动基线核查任务</button>
+  <a class="btn ghost" href="/api/rules" target="_blank">查看规则包</a></div></div>`;
+}
+function showAssetModal(id){
+  const a=(window._assets||[]).find(x=>x.id===id)||{};
+  const subs=['linux','windows','mysql','mssql','oracle','postgres','redis','mongodb','nginx','tomcat','huawei','cisco','h3c'];
+  openModal(`<h3>${id?'编辑':'新增'}核查资产</h3>
+  <div class="grid2">
+  <div><label>IP</label><input id="aIP" value="${esc(a.ip||'')}"></div>
+  <div><label>名称</label><input id="aName" value="${esc(a.name||'')}"></div>
+  <div><label>类型（决定规则包）</label><select id="aSub">${subs.map(s=>`<option ${s===a.subType?'selected':''}>${s}</option>`).join('')}</select></div>
+  <div><label>接入端口（0=默认）</label><input id="aPort" type="number" value="${a.accessPort||0}"></div>
+  <div><label>登录账号</label><input id="aUser" value="${esc(a.credUser||'')}"></div>
+  <div><label>登录口令</label><input id="aPass" type="password" value="${esc(a.credPassword||'')}"></div>
+  </div>
+  <label>模板变量 JSON（可选，如 {"nginx_conf":"/etc/nginx/nginx.conf","tomcat_home":"/opt/tomcat"}）</label>
+  <textarea id="aVars" rows="2">${esc(JSON.stringify(a.vars||{}))}</textarea>
+  <div style="margin-top:14px" class="flexrow"><button class="btn" onclick="saveAsset(${id||0})">保存</button><button class="btn ghost" onclick="closeModal()">取消</button></div>`);
+}
+async function saveAsset(id){
+  let vars={};try{vars=JSON.parse(document.getElementById('aVars').value||'{}')}catch(e){return toast('变量 JSON 格式错误',false)}
+  const body={ip:document.getElementById('aIP').value.trim(),name:document.getElementById('aName').value.trim()||document.getElementById('aIP').value.trim(),
+    subType:document.getElementById('aSub').value,accessPort:+document.getElementById('aPort').value,
+    credUser:document.getElementById('aUser').value,credPassword:document.getElementById('aPass').value,vars:vars};
+  if(!body.ip)return toast('IP 必填',false);
+  try{if(id){await api(`/assets/${id}`,{method:'PUT',body:JSON.stringify(body)})}else{await api('/assets',{method:'POST',body:JSON.stringify(body)})}
+    closeModal();toast('已保存');renderAssets()}catch(e){toast(e.message,false)}
+}
+async function delAsset(id){if(!confirm('确认删除该资产？'))return;await api(`/assets/${id}`,{method:'DELETE'});renderAssets()}
+function showFromHostsModal(){
+  openModal(`<h3>从发现主机批量转化</h3>
+  <p class="small muted">选择目标类型并填入统一凭据，将发现的主机批量创建为核查资产（之后可逐台改凭据）。</p>
+  <div class="grid2">
+  <div><label>类型</label><select id="fhSub"><option>linux</option><option>windows</option><option>mysql</option><option>redis</option><option>postgres</option><option>mongodb</option><option>mssql</option><option>oracle</option><option>huawei</option><option>cisco</option></select></div>
+  <div><label>接入端口（0=默认）</label><input id="fhPort" type="number" value="0"></div>
+  <div><label>账号</label><input id="fhUser" placeholder="root"></div>
+  <div><label>口令</label><input id="fhPass" type="password"></div>
+  <div style="grid-column:1/3"><label>主机 IP 列表（每行一个，可从主机资产页复制）</label><textarea id="fhIPs" rows="5" placeholder="10.0.1.12&#10;10.0.1.15"></textarea></div>
+  </div>
+  <div style="margin-top:14px" class="flexrow"><button class="btn" onclick="createFromHosts()">转化</button><button class="btn ghost" onclick="closeModal()">取消</button></div>`);
+}
+async function createFromHosts(){
+  const ips=document.getElementById('fhIPs').value.split('\n').map(s=>s.trim()).filter(Boolean);
+  if(!ips.length)return toast('请填写 IP',false);
+  try{const r=await api('/assets/from-hosts',{method:'POST',body:JSON.stringify({ips,sub_type:document.getElementById('fhSub').value,
+    cred_user:document.getElementById('fhUser').value,cred_password:document.getElementById('fhPass').value,access_port:+document.getElementById('fhPort').value})});
+    closeModal();toast('已转化 '+r.length+' 台');renderAssets()}catch(e){toast(e.message,false)}
+}
+async function runBaseline(){
+  if(!(window._assets||[]).length)return toast('请先添加核查资产',false);
+  try{const t=await api('/tasks',{method:'POST',body:JSON.stringify({name:'基线核查 '+new Date().toLocaleString(),type:'baseline',config:{asset_ids:window._assets.map(a=>a.id)}})});
+    toast('基线任务已创建 #'+t.id);showPage('tasks')}catch(e){toast(e.message,false)}
+}
+
+// ============ 字典 ============
+async function renderDicts(){
+  const d=(await api('/dicts'))||{};
+  content.innerHTML=`<div class="grid2">
+  <div class="card"><h3 style="margin-bottom:8px">用户名字典（${(d.username||'').split('\n').filter(Boolean).length} 个）</h3>
+  <textarea id="dictUser" rows="18" class="mono small">${esc(d.username||'')}</textarea></div>
+  <div class="card"><h3 style="margin-bottom:8px">弱密码字典（${(d.password||'').split('\n').filter(Boolean).length} 个）</h3>
+  <textarea id="dictPass" rows="18" class="mono small">${esc(d.password||'')}</textarea></div></div>
+  <div class="card"><div class="flexrow"><button class="btn" onclick="saveDicts()">保存字典</button>
+  <span class="muted small">建议补充公司特征组合：公司名缩写+年份（如 corp@2024）、部门+123 等。</span></div></div>`;
+}
+async function saveDicts(){
+  try{await api('/dicts',{method:'PUT',body:JSON.stringify({username:document.getElementById('dictUser').value,password:document.getElementById('dictPass').value})});toast('字典已保存')}catch(e){toast(e.message,false)}
+}
+
+// ============ 规则库 ============
+async function renderRules(){
+  const packs=(await api('/rules'))||[];
+  content.innerHTML=`
+  <div class="card"><h3 style="margin-bottom:6px">三级等保基线规则包（${packs.length} 套 / 共 ${packs.reduce((s,p)=>s+p.Items.length,0)} 条自动核查 + ${packs.reduce((s,p)=>s+(p.ManualItems||[]).length,0)} 条人工核查清单）</h3>
+  <p class="small muted">规则库位于服务端 rules/ 目录（YAML），修改后重启生效；每条规则映射等保 2.0 三级条款。</p>
+  <div class="flexrow" style="margin:10px 0">${packs.map(p=>`<span class="tag info-bg">${esc(p.Target)}（${p.Items.length}）</span>`).join('')}</div></div>
+  ${packs.map(p=>`<div class="card"><h3>${esc(p.Name)} <span class="tag dim-bg">采集: ${esc(p.Collector)}</span></h3>
+  <table class="tb"><tr><th>规则ID</th><th>标题</th><th>控制点</th><th>条款</th><th>级别</th><th>算子</th><th>期望值</th></tr>
+  ${p.Items.map(i=>`<tr><td class="small mono">${esc(i.ID)}</td><td>${esc(i.Title)}</td><td class="small">${esc(i.Control)}</td><td class="small">${esc(i.Ref)}</td>
+  <td>${i.Severity==='high'?'<span class="tag danger-bg">高</span>':i.Severity==='medium'?'<span class="tag warn-bg">中</span>':'<span class="tag dim-bg">低</span>'}</td>
+  <td class="small mono">${esc(i.Op)}</td><td class="small mono">${esc(i.Expected)}</td></tr>`).join('')}</table>
+  ${(p.ManualItems||[]).length?`<h3 style="margin:12px 0 6px" class="small">人工核查清单</h3>${p.ManualItems.map(m=>`<div class="small" style="padding:6px 0;border-bottom:1px solid var(--border)"><b>${esc(m.Title)}</b> <span class="tag warn-bg">${esc(m.Ref)}</span><br><span class="muted">${esc(m.Method)}</span></div>`).join('')}`:''}
+  </div>`).join('')}`;
+}
+
+// ============ 探针管理 ============
+async function renderProbes(){
+  const probes=(await api('/probes'))||[];
+  let bins=[];
+  try{bins=(await api('/probe-binaries'))||[]}catch(e){bins=[]}
+  const loc=location.origin;
+  content.innerHTML=`
+  <div class="card"><h3 style="margin-bottom:6px">添加探针</h3>
+  <p class="small muted">探针 = 部署在其他网段/机房的扫描分身。添加后下载对应平台的探针程序，在目标机器运行启动命令即自动加入扫描集群（结果实时回传本中心）。</p>
+  <div class="flexrow" style="margin-top:10px">
+  <input id="pName" placeholder="探针名称（如 B机房）" style="max-width:220px">
+  <input id="pBind" placeholder="绑定IP（可选，防冒用）" style="max-width:220px">
+  <button class="btn" onclick="createProbe()">生成令牌</button>
+  <button class="btn ghost" onclick="renderProbes()">刷新状态</button></div></div>
+  <div class="card"><h3 style="margin-bottom:8px">探针列表（${probes.length}）</h3>
+  <table class="tb"><tr><th>名称</th><th>状态</th><th>来源IP</th><th>主机名</th><th>版本</th><th>最近心跳</th><th>操作</th></tr>
+  ${probes.map(p=>`<tr><td>${esc(p.name)}<br><span class="small mono">${esc(String(p.token||'').slice(0,8))}...</span></td>
+  <td>${statusTag(p.status)}</td><td class="mono small">${esc(p.sourceIp||'—')}</td><td class="small">${esc(p.hostname||'—')}</td><td class="small">${esc(p.version||'—')}</td><td class="small">${p.lastSeen?.slice(0,19)||'—'}</td>
+  <td class="flexrow"><button class="btn ghost sm" onclick="showProbeCmd('${esc(p.token)}')">启动命令</button>
+  ${p.status==='disabled'?`<button class="btn ghost sm" onclick="toggleProbe(${p.id},'online')">启用</button>`:`<button class="btn ghost sm" onclick="toggleProbe(${p.id},'disabled')">禁用</button>`}
+  <button class="btn danger sm" onclick="delProbe(${p.id})">删除</button></td></tr>`).join('')||'<tr><td colspan=7 class="empty">暂无探针（单机模式无需探针；如需加速扫描或跨机房，按上方步骤添加）</td></tr>'}
+  </table></div>
+  <div class="card"><h3 style="margin-bottom:8px">探针程序下载</h3>
+  ${bins.length?`<div class="flexrow">${bins.map(b=>`<a class="btn ghost sm" href="${b.url}" download>${esc(b.name)}（${(b.size/1048576).toFixed(1)}MB）</a>`).join('')}</div>
+  <p class="small muted" style="margin-top:8px">下载后拷贝到目标机器，配合"启动命令"运行即可加入集群。</p>`
+  :`<p class="small muted">未找到探针二进制。部署包的 probes 目录应包含 probe-* 四个文件（Windows/Linux × amd64/arm64）；或直接复制中心程序 starruler.exe 以 <code class="cmd">--probe</code> 模式运行。</p>`}</div>`;
+  pollTimer=setInterval(()=>{if(!document.querySelector('[data-page=probes].active'))return;
+    const ae=document.activeElement;if(ae&&(ae.tagName==='INPUT'||ae.tagName==='TEXTAREA')&&ae.value)return; // 用户输入中不刷新
+    renderProbes()},5000);
+}
+async function createProbe(){
+  const name=document.getElementById('pName').value.trim();if(!name)return toast('请填写名称',false);
+  try{const p=await api('/probes',{method:'POST',body:JSON.stringify({name,bind_ip:document.getElementById('pBind').value.trim()})});
+  toast('已生成令牌');await renderProbes();showProbeCmd(p.token)}catch(e){toast(e.message,false)}
+}
+function showProbeCmd(token){
+  const loc=location.origin;
+  const cmd=`starruler --probe --server ${esc(loc)} --token ${esc(token)}`;
+  openModal(`<h3>探针启动命令</h3>
+  <p class="small muted">将探针程序（下方下载中心）拷贝到目标机器，重命名为 <b>starruler</b> 后执行：</p>
+  <div style="background:var(--bg-header);border-radius:8px;padding:14px;margin:10px 0" class="mono small">${cmd}</div>
+  <div class="flexrow"><button class="btn sm" onclick="navigator.clipboard.writeText('${cmd}').then(()=>toast('已复制'))">复制命令</button>
+  <button class="btn ghost sm" onclick="closeModal()">关闭</button></div>
+  <p class="small muted" style="margin-top:10px">Linux 机器：chmod +x starruler 后运行（注意使用 probe-linux-* 对应平台文件）。探针只向中心发起出站连接（不监听端口），防火墙只需放行探针→中心方向。运行后探针列表显示在线，扫描分片自动均衡分配。</p>`);
+}
+async function toggleProbe(id,status){await api(`/probes/${id}`,{method:'PUT',body:JSON.stringify({status})});renderProbes()}
+async function delProbe(id){if(!confirm('删除探针？其令牌立即失效'))return;await api(`/probes/${id}`,{method:'DELETE'});renderProbes()}
+
+// ============ 连通探测 ============
+let netOp='ping';
+function selectNetOp(op,el){
+  netOp=op;
+  document.querySelectorAll('.netop').forEach(b=>{b.classList.remove('btn');b.classList.add('btn','ghost')});
+  el.classList.remove('ghost');
+  const ph={ping:'目标 IP 或主机名，如 10.0.1.5',telnet:'主机:端口，如 10.0.1.5:22',curl:'URL，如 http://10.0.1.5:8080/'}[op];
+  document.getElementById('ntTarget').placeholder=ph;
+  document.getElementById('ntHint').textContent={ping:'ICMP Ping（调用系统命令，4 次）',telnet:'TCP 端口连通测试（替代 telnet 命令）',curl:'HTTP GET 探测（状态码/耗时/响应体）'}[op];
+}
+async function renderNettool(){
+  content.innerHTML=`
+  <div class="card">
+    <h3 style="margin-bottom:6px">连通性探测</h3>
+    <p class="small muted" id="ntHint">ICMP Ping（调用系统命令，4 次）</p>
+    <div class="flexrow" style="margin:12px 0">
+      <button class="btn netop" onclick="selectNetOp('ping',this)">Ping</button>
+      <button class="btn ghost netop" onclick="selectNetOp('telnet',this)">Telnet</button>
+      <button class="btn ghost netop" onclick="selectNetOp('curl',this)">Curl</button>
+    </div>
+    <div class="grid2">
+      <div><label>目标</label><input id="ntTarget" placeholder="目标 IP 或主机名，如 10.0.1.5"></div>
+      <div><label>超时（秒）</label><input id="ntTimeout" type="number" value="5"></div>
+    </div>
+    <div style="margin-top:14px"><button class="btn" onclick="runNettool()">▶ 执行探测</button></div>
+  </div>
+  <div class="card" id="ntResultCard" style="display:none">
+    <h3 style="margin-bottom:8px">结果 <span id="ntBadge"></span> <span class="small muted" id="ntMs"></span></h3>
+    <pre id="ntOutput" style="background:#0e1726;color:#d7e4f5;border-radius:8px;padding:14px;font-size:12px;line-height:1.7;overflow:auto;max-height:420px;white-space:pre-wrap;font-family:Consolas,monospace"></pre>
+  </div>`;
+}
+async function runNettool(){
+  const target=document.getElementById('ntTarget').value.trim();
+  if(!target)return toast('请输入目标',false);
+  const badge=document.getElementById('ntBadge'),out=document.getElementById('ntOutput');
+  document.getElementById('ntResultCard').style.display='';
+  badge.innerHTML='<span class="tag info-bg">探测中...</span>';
+  document.getElementById('ntMs').textContent='';
+  out.textContent='执行中，请稍候...';
+  try{
+    const r=await api('/nettool',{method:'POST',body:JSON.stringify({op:netOp,target,timeoutSec:+document.getElementById('ntTimeout').value})});
+    badge.innerHTML=r.ok?'<span class="tag ok-bg">连通</span>':'<span class="tag danger-bg">不通</span>';
+    document.getElementById('ntMs').textContent='耗时 '+r.durationMs+'ms';
+    out.textContent=r.output||r.error||'(无输出)';
+  }catch(e){badge.innerHTML='<span class="tag danger-bg">失败</span>';out.textContent=e.message}
+}
+
+renderDashboard();
+</script>
+</body>
+</html>

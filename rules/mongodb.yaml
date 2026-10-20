@@ -1,0 +1,44 @@
+# MongoDB 三级等保基线
+target: mongodb
+name: MongoDB 三级等保基线
+collector: mongodb
+items:
+  - id: MONGO-AUTH-01
+    title: 已开启访问控制（authorizationEnabled）
+    control: 身份鉴别
+    ref: 8.1.4.1
+    severity: high
+    command: "getParameter authorizationEnabled"
+    op: "eq"
+    expected: "true"
+    remediation: "mongod.conf 配置 security.authorization: enabled 后重启"
+  - id: MONGO-ACC-01
+    title: 仅监听指定地址（bindIp 非 0.0.0.0）
+    control: 访问控制
+    ref: 8.1.4.2
+    severity: medium
+    command: "getParameter quiet"
+    op: "exists"
+    expected: ""
+    when_empty: manual
+    note: 监听地址需结合 ss -lntp 人工确认
+    remediation: "mongod.conf 配置 net.bindIp: 127.0.0.1,内网管理IP"
+  - id: MONGO-AUD-01
+    title: 开启审计日志
+    control: 安全审计
+    ref: 8.1.4.3
+    severity: medium
+    command: "getParameter auditLogDestination"
+    op: "exists"
+    expected: ""
+    when_empty: fail
+    remediation: "mongod.conf 配置 auditLog.destination=file 与路径（企业版功能；社区版可用 profiler 或外部审计方案）"
+manual_items:
+  - id: MONGO-MAN-01
+    title: 监听地址未绑定 0.0.0.0
+    ref: 8.1.4.2
+    method: "在部署机执行 ss -lntp | grep 27017，确认仅监听 127.0.0.1 或内网管理地址"
+  - id: MONGO-MAN-02
+    title: MongoDB 版本无已知高危漏洞
+    ref: 8.1.4.4
+    method: "核对当前版本 CVE 情况，建议 4.4+ 并及时升级"

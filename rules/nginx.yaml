@@ -1,0 +1,66 @@
+# Nginx 三级等保基线（SSH 读取部署机配置，可在资产 vars 中配置 conf 路径变量）
+target: nginx
+name: Nginx 三级等保基线
+collector: ssh
+items:
+  - id: NGINX-ACC-01
+    title: 隐藏版本号（server_tokens off）
+    control: 入侵防范
+    ref: 8.1.4.4
+    severity: medium
+    command: "grep -E '^\\s*server_tokens' {nginx_conf} | awk '{print $2}'"
+    op: "eq"
+    expected: "off"
+    when_empty: fail
+    remediation: "nginx.conf http 段设置 server_tokens off"
+  - id: NGINX-ACC-02
+    title: 禁用目录自动列表（autoindex off）
+    control: 访问控制
+    ref: 8.1.4.2
+    severity: medium
+    command: "grep -rE '^\\s*autoindex' {nginx_conf} {nginx_conf_dir} 2>/dev/null | grep -cv 'autoindex off' | awk '{print $1+0}'"
+    op: "eq"
+    expected: "0"
+    when_empty: pass
+    remediation: "所有 location/server 段确保 autoindex off（默认off，显式配置更稳）"
+  - id: NGINX-ACC-03
+    title: 未配置不安全的 SSLv3/TLS1.0 协议
+    control: 数据保密性
+    ref: 8.1.4.8
+    severity: high
+    command: "grep -rE 'ssl_protocols' {nginx_conf} {nginx_conf_dir} 2>/dev/null | grep -cE 'SSLv3|TLSv1[^.]' | awk '{print $1+0}'"
+    op: "eq"
+    expected: "0"
+    when_empty: manual
+    remediation: "ssl_protocols 限定 TLSv1.2 TLSv1.3"
+  - id: NGINX-AUD-01
+    title: 开启访问日志（access_log）
+    control: 安全审计
+    ref: 8.1.4.3
+    severity: medium
+    command: "grep -cE '^\\s*access_log\\s+on|^\\s*access_log\\s+/' {nginx_conf}"
+    op: ">="
+    expected: "1"
+    when_empty: fail
+    remediation: "http 段设置 access_log logs/access.log main;（勿设 off）"
+  - id: NGINX-INTR-01
+    title: 以非 root 特权进程运行（master 属主非 root 或已降权 worker）
+    control: 访问控制
+    ref: 8.1.4.2
+    severity: medium
+    command: "ps -ef | grep '[n]ginx: master' | awk '{print $1}' | head -1"
+    op: "ne"
+    expected: "root"
+    when_empty: manual
+    note: 生产多数以 root 启动 master 监听80，可结合 setcap 或改高位端口降权；此项酌情按企业标准处理
+    remediation: "nginx -s reload 前以普通用户启动，或 nginx -u nobody 指定运行用户并高位端口"
+  - id: NGINX-INTR-02
+    title: 限制请求体大小（client_max_body_size）
+    control: 入侵防范
+    ref: 8.1.4.4
+    severity: low
+    command: "grep -E '^\\s*client_max_body_size' {nginx_conf} | awk '{print $2}'"
+    op: "exists"
+    expected: ""
+    when_empty: manual
+    remediation: "按业务设置 client_max_body_size 10m，防超大包攻击"

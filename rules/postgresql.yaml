@@ -1,0 +1,75 @@
+# PostgreSQL 三级等保基线
+target: postgres
+name: PostgreSQL 三级等保基线
+collector: postgres
+items:
+  - id: PG-AUTH-01
+    title: 口令加密算法使用 scram-sha-256
+    control: 身份鉴别
+    ref: 8.1.4.1
+    severity: high
+    command: "SHOW password_encryption"
+    op: "eq"
+    expected: "scram-sha-256"
+    remediation: "postgresql.conf 设置 password_encryption='scram-sha-256'（PG10+），存量口令需重置生效"
+  - id: PG-AUTH-02
+    title: pg_hba.conf 无 trust 免认证条目
+    control: 身份鉴别
+    ref: 8.1.4.1
+    severity: high
+    command: "SELECT CASE WHEN pg_read_file('pg_hba.conf') LIKE '%trust%' THEN 1 ELSE 0 END"
+    op: "eq"
+    expected: "0"
+    remediation: "编辑 pg_hba.conf，将 trust 改为 scram-sha-256/md5 后 reload"
+  - id: PG-ACC-01
+    title: 非默认超管账户数量为0（超级用户唯一）
+    control: 访问控制
+    ref: 8.1.4.2
+    severity: medium
+    command: "SELECT count(*) FROM pg_roles WHERE rolsuper AND rolname <> 'postgres'"
+    op: "eq"
+    expected: "0"
+    remediation: "收回业务账户的超级用户属性：ALTER ROLE xxx NOSUPERUSER"
+  - id: PG-ACC-02
+    title: 开启 SSL 加密连接
+    control: 数据保密性
+    ref: 8.1.4.8
+    severity: medium
+    command: "SHOW ssl"
+    op: "eq"
+    expected: "on"
+    when_empty: manual
+    remediation: "postgresql.conf 设置 ssl=on 并配置证书"
+  - id: PG-AUD-01
+    title: 记录连接与断开日志
+    control: 安全审计
+    ref: 8.1.4.3
+    severity: medium
+    command: "SHOW log_connections"
+    op: "eq"
+    expected: "on"
+    remediation: "postgresql.conf 设置 log_connections=on"
+  - id: PG-AUD-02
+    title: 记录会话结束日志
+    control: 安全审计
+    ref: 8.1.4.3
+    severity: low
+    command: "SHOW log_disconnections"
+    op: "eq"
+    expected: "on"
+    remediation: "postgresql.conf 设置 log_disconnections=on"
+  - id: PG-AUD-03
+    title: 审计日志记录耗时语句
+    control: 安全审计
+    ref: 8.1.4.3
+    severity: low
+    command: "SHOW log_duration"
+    op: "eq"
+    expected: "on"
+    when_empty: manual
+    remediation: "postgresql.conf 设置 log_duration=on"
+manual_items:
+  - id: PG-MAN-01
+    title: 数据库定期备份与恢复演练
+    ref: 8.1.4.9
+    method: "核查 pg_dump/pg_basebackup 备份计划与恢复演练记录"
